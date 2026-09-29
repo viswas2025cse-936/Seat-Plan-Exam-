@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SeatPlan Pro — Exam Hall Seating Arrangement Generator</title>
+    <meta name="description" content="Intelligent exam hall seating arrangement generator ensuring no two adjacent seats belong to the same class/section while strictly enforcing hall declared capacity.">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="nav-container">
+            <a href="#" class="brand" onclick="switchTab('dashboard')">
+                <div class="brand-icon">🪑</div>
+                <div class="brand-text">
+                    <h1>SeatPlan Pro</h1>
+                    <span>Exam Seating Generator</span>
+                </div>
+            </a>
+
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+                    📊 <span>Overview</span>
+                </button>
+                <button class="nav-btn" data-tab="halls" onclick="switchTab('halls')">
+                    🏛️ <span>Exam Halls</span>
+                </button>
+                <button class="nav-btn" data-tab="students" onclick="switchTab('students')">
+                    🎓 <span>Students</span>
+                </button>
+                <button class="nav-btn" data-tab="sessions" onclick="switchTab('sessions')">
+                    ⚡ <span>Auto-Allocator</span>
+                </button>
+                <button class="nav-btn" data-tab="chart" onclick="switchTab('chart')">
+                    🖨️ <span>Seating Chart</span>
+                </button>
+                <button class="nav-btn" data-tab="lookup" onclick="switchTab('lookup')">
+                    🔍 <span>Student Lookup</span>
+                </button>
+            </nav>
+
+            <div class="header-actions">
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>Service Online</span>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="switchTab('notifications')" title="View Notifications">
+                    🔔 <span id="notificationBadgeCount" class="badge badge-primary">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Tabs -->
+    <main>
+
+        <!-- TAB 1: DASHBOARD OVERVIEW -->
+        <section id="tab-dashboard" class="tab-pane active">
+            <div class="section-header">
+                <div>
+                    <h2>Exam Seating Command Center</h2>
+                    <p>Auto-generate seating plans across halls ensuring no two adjacent seats share the same class/section.</p>
+                </div>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button class="btn btn-primary" onclick="switchTab('sessions')">⚡ Run Auto-Allocation</button>
+                    <button class="btn btn-secondary" onclick="loadDashboardData()">🔄 Refresh</button>
+                </div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon halls">🏛️</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statHallsCount">0</div>
+                        <div class="stat-label">Exam Halls</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon students">🎓</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statStudentsCount">0</div>
+                        <div class="stat-label">Total Students</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon sessions">📅</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statSessionsCount">0</div>
+                        <div class="stat-label">Exam Sessions</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon allocated">🪑</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="statAllocatedCount">0</div>
+                        <div class="stat-label">Seats Allocated</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Core Rules & Quick Info Panel -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;" class="dashboard-split">
+                <div class="card-panel">
+                    <div class="card-panel-header">
+                        <h3>📋 Active Exam Sessions</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="switchTab('sessions')">+ New Session</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="custom-table" id="dashboardSessionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Session Name</th>
+                                    <th>Date</th>
+                                    <th>Halls</th>
+                                    <th>Capacity</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dashboardSessionsList">
+                                <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Loading sessions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card-panel">
+                    <div class="card-panel-header">
+                        <h3>🛡️ Business Rules Enforced</h3>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.88rem;">
+                        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                            <span style="font-size: 1.25rem;">🛑</span>
+                            <div>
+                                <strong style="color: #fff;">Strict Hall Capacity</strong>
+                                <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 2px;">
+                                    No student is ever allocated beyond a hall's declared capacity. Checked before saving in service layer.
+                                </p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                            <span style="font-size: 1.25rem;">🧩</span>
+                            <div>
+                                <strong style="color: #fff;">Non-Adjacent Sections</strong>
+                                <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 2px;">
+                                    Guarantees that horizontally and vertically adjacent seats differ in class/section whenever alternatives exist.
+                                </p>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+                            <span style="font-size: 1.25rem;">🔍</span>
+                            <div>
+                                <strong style="color: #fff;">Instant Student Lookup</strong>
+                                <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 2px;">
+                                    Students can query their hall, row, column, and exact seat number via roll number.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: EXAM HALLS -->
+        <section id="tab-halls" class="tab-pane">
+            <div class="section-header">
+                <div>
+                    <h2>Exam Hall Registry</h2>
+                    <p>Configure halls with rows, columns, and declared capacity limits.</p>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;" class="hall-layout-split">
+                <!-- Hall Creation Form -->
+                <div class="card-panel">
+                    <div class="card-panel-header">
+                        <h3>🏛️ Register New Hall</h3>
+                    </div>
+                    <form id="hallForm" onsubmit="handleCreateHall(event)">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="hallName">Hall Name / Number *</label>
+                            <input type="text" id="hallName" class="form-control" placeholder="e.g. Science Block 101" required>
+                        </div>
+                        <div class="form-grid" style="margin-bottom: 1rem;">
+                            <div class="form-group">
+                                <label for="hallRows">Rows *</label>
+                                <input type="number" id="hallRows" class="form-control" min="1" max="50" value="5" required oninput="updateHallCapacityHint()">
+                            </div>
+                            <div class="form-group">
+                                <label for="hallCols">Columns *</label>
+                                <input type="number" id="hallCols" class="form-control" min="1" max="50" value="6" required oninput="updateHallCapacityHint()">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1.25rem;">
+                            <label for="hallCapacity">Declared Capacity *</label>
+                            <input type="number" id="hallCapacity" class="form-control" min="1" value="28" required>
+                            <div class="form-help" id="hallCapacityHint">Physical Seats: 30 (5 rows × 6 cols). Declared capacity cannot exceed 30.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Exam Hall</button>
+                    </form>
+                </div>
+
+                <!-- Halls List -->
+                <div class="card-panel">
+                    <div class="card-panel-header">
+                        <h3>Registered Exam Halls</h3>
+                        <span class="badge badge-neutral" id="hallsBadgeCount">0 Halls</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="custom-table" id="hallsTable">
+                            <thead>
+                                <tr>
+                                    <th>Hall Name</th>
+                                    <th>Grid (R × C)</th>
+                                    <th>Physical Seats</th>
+                                    <th>Declared Capacity</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hallsList">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No halls registered yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: STUDENTS DIRECTORY -->
+        <section id="tab-students" class="tab-pane">
+            <div class="section-header">
+                <div>
+                    <h2>Student Registration & Roster</h2>
+                    <p>Register examinees with their respective class, section, and department.</p>
+                </div>
+                <div style="display: flex; gap: 0.75rem;">
+                    <button class="btn btn-secondary" onclick="generateSampleStudents()">✨ Add 10 Sample Students</button>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem;" class="student-layout-split">
+                <!-- Register Student Form -->
+                <div class="card-panel">
+                    <div class="card-panel-header">
+                        <h3>🎓 Register Student</h3>
+                    </div>
+                    <form id="studentForm" onsubmit="handleCreateStudent(event)">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="studentRoll">Roll Number *</label>
+                            <input type="text" id="studentRoll" class="form-control" placeholder="e.g. 24CS035" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="studentName">Full Name *</label>
+                            <input type="text" id="studentName" class="form-control" placeholder="e.g. Viswa Arul" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="studentDept">Department</label>
+                            <input type="text" id="studentDept" class="form-control" placeholder="e.g. Computer Science">
+                        </div>
+                        <div class="form-grid" style="margin-bottom: 1.25rem;">
+                            <div class="form-group">
+                                <label for="studentClass">Class / Degree *</label>
+                                <input type="text" id="studentClass" class="form-control" placeholder="e.g. CSE" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="studentSec">Section *</label>
+                                <input type="text" id="studentSec" class="form-control" placeholder="e.g. A" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Enroll Student</button>
+                    </form>
+                </div>
+
+                <!-- Students Roster Table -->
+                <div class="card-panel">
+                    <div class="card-panel-header">
+                        <h3>Student Roster</h3>
+                        <div style="display: flex; gap: 0.75rem; align-items: center;">
+                            <input type="text" id="studentSearchInput" class="form-control" style="width: 200px; padding: 0.4rem 0.8rem; font-size: 0.82rem;" placeholder="🔍 Search student..." oninput="handleStudentSearch()">
+                            <span class="badge badge-neutral" id="studentsBadgeCount">0 Students</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                        <table class="custom-table" id="studentsTable">
+                            <thead>
+                                <tr>
+                                    <th>Roll Number</th>
+                                    <th>Name</th>
+                                    <th>Class & Section</th>
+                                    <th>Department</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsList">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Loading students...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: EXAM SESSIONS & AUTO-ALLOCATOR -->
+        <section id="tab-sessions" class="tab-pane">
+            <div class="section-header">
+                <div>
+                    <h2>Exam Sessions & Auto-Allocator</h2>
+                    <p>Run the intelligent non-adjacent seating algorithm to arrange exam seats instantly.</p>
+                </div>
+            </div>
+
+            <!-- Auto Allocation Action Banner -->
+            <div class="card-panel" style="background: linear-gradient(135deg, rgba(30, 27, 75, 0.85), rgba(15, 23, 42, 0.95)); border: 1px solid var(--primary);">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h3 style="font-size: 1.4rem; color: #fff; margin-bottom: 0.3rem;">⚡ Intelligent Seating Arrangement Engine</h3>
+                        <p style="color: #cbd5e1; font-size: 0.9rem; max-width: 700px;">
+                            Select an exam session below to auto-allocate seating across all participating halls.
+                            Ensures students from the same section never sit next to each other (horizontally or vertically) whenever alternatives exist, and strictly respects declared capacities.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        <select id="autoAllocateSessionSelect" class="form-control" style="min-width: 220px;"></select>
+                        <button class="btn btn-primary" onclick="runAutoAllocation()">🚀 Generate Seating Plan</button>
+                    </div>
+                </div>
+
+                <!-- Live Allocation Result Message Banner -->
+                <div id="allocationResultBanner" style="display: none; margin-top: 1.5rem; padding: 1.25rem; border-radius: var(--radius-md); background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <h4 id="allocationResultTitle" style="color: var(--success-light); font-size: 1.05rem; margin-bottom: 0.25rem;">Allocation Complete</h4>
+                            <p id="allocationResultMessage" style="color: #cbd5e1; font-size: 0.88rem;"></p>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="switchTab('chart')">View Seating Chart 🖨️</button>
+                    </div>
+                    <ul id="allocationHallBreakdown" style="margin-top: 0.75rem; font-size: 0.84rem; color: #94a3b8; padding-left: 1.25rem;"></ul>
+                </div>
+            </div>
+
+            <!-- Create Exam Session & Sessions Table -->
+            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-top: 1.5rem;" class="session-layout-split">
+                <!-- Create Session Form -->
+                <div class="card-panel">
+                    <div class="card-panel-header">
+                        <h3>📅 Create Exam Session</h3>
+                    </div>
+                    <form id="sessionForm" onsubmit="handleCreateSession(event)">
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="sessionName">Session Title *</label>
+                            <input type="text" id="sessionName" class="form-control" placeholder="e.g. End Semester - Algorithms" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="courseCode">Course / Subject Code</label>
+                            <input type="text" id="courseCode" class="form-control" placeholder="e.g. CS201">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 1rem;">
+                            <label for="sessionDate">Exam Date *</label>
+                            <input type="date" id="sessionDate" class="form-control" required>
+                        </div>
+                        <div class="form-grid" style="margin-bottom: 1.25rem;">
+                            <div class="form-group">
+                                <label for="sessionStart">Start Time</label>
+                                <input type="text" id="sessionStart" class="form-control" placeholder="10:00 AM">
+                            </div>
+                            <div class="form-group">
+                                <label for="sessionEnd">End Time</label>
+                                <input type="text" id="sessionEnd" class="form-control" placeholder="01:00 PM">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Session</button>
+                    </form>
+                </div>
+
+                <!-- Sessions List -->
+                <div class="card-panel">
+                    <div class="card-panel-header">
+                        <h3>Exam Sessions Roster</h3>
+                        <span class="badge badge-neutral" id="sessionsBadgeCount">0 Sessions</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="custom-table" id="sessionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Session Name</th>
+                                    <th>Date</th>
+                                    <th>Halls</th>
+                                    <th>Capacity</th>
+                                    <th>Allocated</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sessionsList">
+                                <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">Loading sessions...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: SEATING CHART & PRINT PREVIEW -->
+        <section id="tab-chart" class="tab-pane">
+            <div class="section-header">
+                <div>
+                    <h2>Interactive Seating Chart & Print Center</h2>
+                    <p>Visual 2D hall layout with section color-coding and print-ready notice board exports.</p>
+                </div>
+                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                    <select id="chartSessionSelect" class="form-control" onchange="loadSessionHallsForChart()"></select>
+                    <select id="chartHallSelect" class="form-control" onchange="renderSeatingChart()"></select>
+                    <button class="btn btn-accent" onclick="openPrintableView()">🖨️ Print Chart</button>
+                </div>
+            </div>
+
+            <!-- Hall Summary Card -->
+            <div class="card-panel" style="padding: 1.25rem; margin-bottom: 1.25rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h3 id="chartHallTitle" style="font-size: 1.3rem;">Hall Seating Arrangement</h3>
+                        <p id="chartHallMeta" style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 2px;">Select session and hall to view layout.</p>
+                    </div>
+                    <div style="display: flex; gap: 0.75rem; align-items: center;">
+                        <span class="badge badge-primary" id="chartTotalSeatedBadge">0 Seated</span>
+                        <span class="badge badge-neutral" id="chartCapacityBadge">Capacity: 0</span>
+                        <span class="badge badge-success" id="chartConflictStatusBadge">✓ 0 Adjacent Conflicts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seating Chart Visual Grid -->
+            <div class="seating-chart-container">
+                <div class="podium-stage">=== FRONT / BLACKBOARD / INVIGILATOR DESK ===</div>
+                <div id="seatingGridContainer" class="seating-grid">
+                    <p style="color: var(--text-muted); padding: 2rem;">Please select an exam session and hall above.</p>
+                </div>
+            </div>
+
+            <!-- Legend Bar -->
+            <div class="legend-bar">
+                <strong style="color: #fff; font-size: 0.82rem; margin-right: 0.5rem;">Section Colors:</strong>
+                <div class="legend-item">
+                    <div class="legend-color-box" style="background: #6366f1;"></div>
+                    <span>CSE - Section A</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-box" style="background: #06b6d4;"></div>
+                    <span>CSE - Section B</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-box" style="background: #f59e0b;"></div>
+                    <span>ECE - Section A</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-box" style="background: #ec4899;"></div>
+                    <span>MECH - Section A</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-box" style="background: #1e293b; border: 1px dashed #64748b;"></div>
+                    <span>Vacant Seat</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color-box" style="background: #ef4444;"></div>
+                    <span>Adjacent Conflict (if any)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 6: STUDENT SEAT LOOKUP -->
+        <section id="tab-lookup" class="tab-pane">
+            <div class="section-header">
+                <div>
+                    <h2>Student Seat Lookup Portal</h2>
+                    <p>Instant exam hall and seat coordinates locator for examinees.</p>
+                </div>
+            </div>
+
+            <div class="card-panel" style="max-width: 720px; margin: 0 auto;">
+                <div class="card-panel-header" style="justify-content: center; text-align: center;">
+                    <h3>🔍 Find Your Allocated Seat</h3>
+                </div>
+                <form id="lookupForm" onsubmit="handleStudentLookup(event)">
+                    <div style="display: flex; gap: 0.75rem;">
+                        <input type="text" id="lookupRollInput" class="form-control" style="font-size: 1.1rem; padding: 0.85rem 1.25rem;" placeholder="Enter Roll Number (e.g. 24CS001)" required>
+                        <button type="submit" class="btn btn-primary btn-lg">Lookup</button>
+                    </div>
+                </form>
+
+                <!-- Result Box -->
+                <div id="lookupResultContainer" style="display: none;"></div>
+            </div>
+        </section>
+
+        <!-- TAB 7: NOTIFICATIONS & AUDIT LOGS -->
+        <section id="tab-notifications" class="tab-pane">
+            <div class="section-header">
+                <div>
+                    <h2>System Audit & Notification Stream</h2>
+                    <p>Real-time audit log of all registration, allocation, and status changes across the system.</p>
+                </div>
+                <button class="btn btn-secondary" onclick="loadNotifications()">🔄 Refresh Logs</button>
+            </div>
+
+            <div class="card-panel">
+                <div class="table-responsive">
+                    <table class="custom-table" id="notificationsTable">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Severity</th>
+                                <th>Event</th>
+                                <th>Title</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="notificationsList">
+                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No notification logs found.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Seat Detail Modal -->
+    <div class="modal-overlay" id="seatModal" onclick="closeSeatModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 id="seatModalTitle">Seat Details</h3>
+                <button class="modal-close" onclick="closeSeatModal()">&times;</button>
+            </div>
+            <div id="seatModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/app.js"></script>
+</body>
+</html>
